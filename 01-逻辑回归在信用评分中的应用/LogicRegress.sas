@@ -1,14 +1,17 @@
 /*  0.前言：  
     数据挖掘项目最繁琐且最不可自动化的环节在前期数据清洗，所以本程序不做演示和赘述。
-    假定已经有一份处理好的宽表数据pf_data1（见本目录下SAS数据文件pf_data1.sas7bdat），loan_id为流水号，y是因变量（其中y=1表示坏客户），其余均为自变量。
-    本程序着重演示如何选取有效自变量、如何建模、如何制定评分标准，为使程序更加自动化、简洁优雅，用到了宏程序，如果能掌握其中含义，大概能应付80%的建模应用场景吧。。。手动挖鼻。。。
-    有了原始宽表数据和本程序，只消修改第7、8行的目录为实际目录，即可一路通畅执行到底，无毒无副作用，请放心食用。
+    已经有一份处理好的宽表数据pf_data1（见本目录下SAS数据文件pf_data1.sas7bdat）：
+    loan_id为流水号，y是因变量（其中y=1表示坏客户），其余均为自变量。
+    本程序着重演示如何选取有效自变量、如何建模、如何制定评分标准；
+    为使程序更加自动化、简洁优雅，用到了宏程序，如果能掌握其中含义，大概能应付80%的建模应用场景吧。。。手动挖鼻。。。
+    有了原始宽表数据和本程序，只消修改第9、10行的目录为实际目录，即可一路通畅执行到底，无毒无副作用，请放心食用。
  */
 %LET basedir = "E:\";    * 基础逻辑库，原始宽表和脚本建议都放在这里 ;
 %LET scorefile = "E:\score";  * 存放分数计算公式的文件名，建议和逻辑库放一起 ;
 LIBNAME sqpf &basedir.;  * 将sas数据文件pf_data1放入指定目录库，并指定逻辑库为该目录，就能直接看到数据文件 ;
 
-/*  1.对城市聚类：本案例中，城市字段city_name有300个左右，需分组，总体分组策略是：先计算响应概率，即每个城市的坏客户占比，再根据响应概率用聚类方式确定分组数量和分组。 
+/*  1.对城市聚类：本案例中，城市字段city_name有300个左右，需分组。
+    总体分组策略是：先计算响应概率，即每个城市的坏客户占比，再根据响应概率用聚类方式确定分组数量和分组。 
     其实也没必要非要用聚类算法，根据相应概率简单粗暴划几个档也是可以的，这里就是小装个逼。。。手动挖鼻。。。
  */
 
@@ -30,7 +33,8 @@ PROC CLUSTER
 RUN;
 
 /*  1.3分析结果表fortree，R方和半偏R方相对较稳定理想值的切在9类，则后续按照9类为标准做快速聚类。
-    为什么不直接用层次聚类的结果呢。。。因为。。。还没有搞懂怎么直接导出分类结果。。。手动摊手。。。理论上肯定是有办法的。。。这里先偷个懒。。。
+    为什么不直接用层次聚类的结果呢。。。因为。。。还没有搞懂怎么直接导出分类结果。。。手动摊手。。。
+    理论上肯定是有办法的。。。这里先偷个懒。。。
   */
 PROC FASTCLUSTER 
     DATA= level OUT=clust MAXC=9 CLUSTER=cluster MAXITER=99;
@@ -61,7 +65,8 @@ RUN;
 
 DATA sqpf.pf_data2;
 	  SET sqpf.pf_data2;
-	  DROP applied_term city_name;     * applied_term已被字符型applied_term_char替代，就可以删除了，city_name已经被聚类操作过了，用city_cluster替代，也可以删除了;
+	  * applied_term已被字符型applied_term_char替代，就可以删除了，city_name已经被聚类操作过了，用city_cluster替代，也可以删除了;
+	  DROP applied_term city_name registered_city residential_city;     
 RUN;
 
 
@@ -149,7 +154,9 @@ QUIT;
 
 /*  2.3计算每个字段的IV值并且只保留IV值>=0.019的字段  */
 PROC SQL NOPRINT; 
-    CREATE TABLE pf_iv AS SELECT columnname, SUM((gi/g-bi/b)*woe) AS iv FROM pf_woe GROUP BY columnname HAVING SUM((gi/g-bi/b)*woe) >= 0.019;
+    CREATE TABLE pf_iv AS 
+    SELECT columnname, SUM((gi/g-bi/b)*woe) AS iv 
+    FROM pf_woe GROUP BY columnname HAVING SUM((gi/g-bi/b)*woe) >= 0.019;
 QUIT;
 
 PROC SORT DATA = pf_iv;
@@ -175,7 +182,8 @@ RUN;
             %LET variable=%SYSFUNC(GETVARC(&dsid,&varnume));     * 获取变量名称;
             
             PROC SQL NOPRINT;
-                UPDATE sqpf.pf_data3 a SET woe_&variable. = (SELECT woe FROM pf_woe b WHERE columnname = "&variable." AND columnvalue = a.&variable.);
+                UPDATE sqpf.pf_data3 a 
+                SET woe_&variable. = (SELECT woe FROM pf_woe b WHERE columnname = "&variable." AND columnvalue = a.&variable.);
             QUIT;
         %END;
         %LET dsid=%SYSFUNC(CLOSE(&dsid));
@@ -314,7 +322,9 @@ RUN;
 
 
 
-/*  6.验证评分结果按人数等分，这里计算出结果表后需导出值excel作图，理论上SAS绘图功能也是可以直接画的，只是本人尚未点亮这棵技能树。。。手动摊手。。。  */
+/*  6.验证评分结果按人数等分，这里计算出结果表后需导出值excel作图.
+    理论上SAS绘图功能也是可以直接画的，只是本人尚未点亮这棵技能树。。。手动摊手。。。  
+    */
 /* 6.1 将评分结果按照分数值从低到高排序，均分为20组  */
 PROC RANK 
     DATA = sqpf.pf_data4 groups=20 OUT=rankd ;
@@ -397,9 +407,10 @@ DATA valid_lift_score;
            decile_good_count_rate decile_good_tot_event_rate cum_good_cum_count_rate cum_good_tot_event_rate percent10.2; 
     LABEL cum_n = '累计总客户数' cum_event = '累计坏客户数' cum_good = '累积好客户数'
           decile_pct='本组内客户数占总体比例' cum_decile_pct = '累积客户数占总体比例' 
-          decile_asum_count_rate='本组内坏客户数占本组比例'  decile_asum_tot_event_rate = '本组内坏客户占总坏客户数比' cum_event_cum_count_rate = '累积坏客户占总客户数比' cum_event_tot_event_rate='累积坏客户数占总坏客户数比例' 
-          decile_good_count_rate='本组内好客户数占本组比例'  decile_good_tot_event_rate = '本组内好客户占总好客户数比' cum_good_cum_count_rate = '累积好客户占总客户数比' cum_good_tot_event_rate='累积好客户数占总好客户数比例' 
+          decile_asum_count_rate='本组内坏客户数占本组比例'  decile_asum_tot_event_rate = '本组内坏客户占总坏客户数比' 
+          cum_event_cum_count_rate = '累积坏客户占总客户数比' cum_event_tot_event_rate='累积坏客户数占总坏客户数比例' 
+          decile_good_count_rate='本组内好客户数占本组比例'  decile_good_tot_event_rate = '本组内好客户占总好客户数比' 
+          cum_good_cum_count_rate = '累积好客户占总客户数比' cum_good_tot_event_rate='累积好客户数占总好客户数比例' 
           cum_good_tot_event_rate = '累积好客户数占总好客户数比例';
-
 RUN;
 
