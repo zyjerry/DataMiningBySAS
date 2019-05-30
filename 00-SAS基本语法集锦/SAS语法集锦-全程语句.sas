@@ -36,11 +36,11 @@ OPTIONS
   EMAILSYS          = smtp 
   EMAILPORT         = 25 
   EMAILHOST         = "smtp.qiye.163.com" 
-  EMAILID           = "zhangyan@yingu.com"
-  EMAILPW           = "zy!YINGU";
-FILENAME mymail EMAIL "zhangyan@yingu.com" subject="SAS OUTPUT SYSTEM" ENCODING=gb2312;
+  EMAILID           = "zhangyan@xxxx.com"
+  EMAILPW           = "xxxxxxxx";
+FILENAME mymail EMAIL "zhangyan@xxxx.com" subject="SAS OUTPUT SYSTEM" ENCODING=gb2312;
 DATA _null_;
-  FILE mymail TO=("zhangyan@yingu.com") ATTACH=("D:\utf.txt");  
+  FILE mymail TO=("zhangyan@xxxx.com") ATTACH=("D:\utf.txt");  
   PUT "!EM_TO!" "zy_79@sina.com";                          *指定邮件发送的地址;
   PUT "!EM_SUBJECT! The output result by SAS";             *指定邮件的主题;
   PUT "!EM_ATTACH!" "D:\utf.txt";                          *指定邮件所添加的附件;
